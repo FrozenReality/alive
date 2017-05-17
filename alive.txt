@@ -1,0 +1,7 @@
+"alive"
+{
+	"base"		"base"
+	"title"		"Alive"
+	"maps"		"^al_"
+	"menusystem"	"1"
+}

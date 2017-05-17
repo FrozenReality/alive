@@ -130,8 +130,6 @@ function GM:Think()
 
     end
 
-    PrintTable(playersOutsideWall)
-
 end
 
 -- Player spawn

@@ -12,6 +12,9 @@ local gameState = 0
 -- Create HUD object
 local aliveHud = {}
 
+-- Create wall texture
+local wallMeterial = Material("effects/combineshield/comshieldwall") 
+
 -- Create text painter
 function aliveHud:text(x, y, text, font, color, shadowColor)
 
@@ -90,6 +93,13 @@ function GM:HUDPaint()
 	-- Tell player how many people are alive
 	aliveHud:text(50, 80, "Alive players: " .. team.NumPlayers(teamAlive), "default", colors.white, colors.black)
 
+	local playerWeapon = ply:GetActiveWeapon()
+	if playerWeapon:IsValid() then
+		-- Tell player how many people are alive
+		aliveHud:text(50, 95, "Weapon: " .. playerWeapon:GetClass(), "default", colors.white, colors.black)
+		aliveHud:text(50, 110, "Clip1: " .. playerWeapon:Clip1(), "default", colors.white, colors.black)
+	end
+
 	-- Health bar
 	if ply:Team() == teamAlive and gameState == gamePlaying then
 		aliveHud:bar(50, ScrH() - 70, 250, 20, colors.red, colors.black, ply:Health() / 100)
@@ -100,46 +110,53 @@ end
 
 function GM:PostDrawOpaqueRenderables()
 
-	-- Calculate walls width and height
-	local wallWidth = wallDistanceCurrent * 2
-	local wallHeight = 500
-	local wallColor = Color(255, 0, 0, 100)
+	-- Define circle variables
+	local sides = 64
+	local angle = 360 / sides
+	local radius = wallDistanceCurrent
+	local wallWidth = (2 * radius) * math.tan(math.pi / sides) + 1
+	local wallHeight = 300
+	local textureWidth = 64
+	local textureHeight = 64
 
-	-- Draw north wall
-	local northWallX = mapCentre[1] - (wallWidth / 2)
-	local northWallY = (mapCentre[2] + wallDistanceCurrent)
-	local northWallZ = mapCentre[3]
-	cam.Start3D2D(Vector(northWallX, northWallY, northWallZ), Angle(-90, 90, 0), 1)
-		surface.SetDrawColor(wallColor)
-		surface.DrawRect(0, 0, wallHeight, wallWidth)
-	cam.End3D2D()
+	-- Only render if we have some wall distance
+	if wallDistanceCurrent > 0 then
 
-	-- Draw east wall
-	local northWallX = (mapCentre[1] + wallDistanceCurrent)
-	local northWallY = mapCentre[2] + (wallWidth / 2)
-	local northWallZ = mapCentre[3]
-	cam.Start3D2D(Vector(northWallX, northWallY, northWallZ), Angle(-90, 0, 0), 1)
-		surface.SetDrawColor(wallColor)
-		surface.DrawRect(0, 0, wallHeight, wallWidth)
-	cam.End3D2D()
+		-- For X sides, build inner face
+		for i = 1, sides, 1 do
 
-	-- Draw south wall
-	local southWallX = mapCentre[1] - (wallWidth / 2)
-	local southWallY = (mapCentre[2] - wallDistanceCurrent)
-	local southWallZ = mapCentre[3]
-	cam.Start3D2D(Vector(southWallX, southWallY, southWallZ), Angle(-90, 90, 0), 1)
-		surface.SetDrawColor(wallColor)
-		surface.DrawRect(0, 0, wallHeight, wallWidth)
-	cam.End3D2D()
+			local faceAngle = (angle * i)
+			local faceRadians = faceAngle * math.pi / 180
 
-	-- Draw west wall
-	local northWallX = (mapCentre[1] - wallDistanceCurrent)
-	local northWallY = mapCentre[2] + (wallWidth / 2)
-	local northWallZ = mapCentre[3]
-	cam.Start3D2D(Vector(northWallX, northWallY, northWallZ), Angle(-90, 0, 0), 1)
-		surface.SetDrawColor(wallColor)
-		surface.DrawRect(0, 0, wallHeight, wallWidth)
-	cam.End3D2D()
+			local x = mapCentre[1] + (radius * math.cos(faceRadians))
+			local y = mapCentre[2] + (radius * math.sin(faceRadians))
+
+			cam.Start3D2D(Vector(x, y, 20), Angle(0, faceAngle + 90, -90), 1)
+				surface.SetDrawColor(Color(255, 255, 255, 255))
+				surface.SetMaterial(wallMeterial)
+				surface.DrawTexturedRectUV(0 - (wallWidth / 2), 0, wallWidth, wallHeight, 0, 0, wallWidth / textureWidth, wallHeight / textureHeight )
+			cam.End3D2D()
+
+		end
+
+		-- For X sides, build outer face, this is here to the outer faces always render over inners
+		for i = 1, sides, 1 do
+
+			local faceAngle = (angle * i)
+			local faceRadians = faceAngle * math.pi / 180
+
+			local x = mapCentre[1] + (radius * math.cos(faceRadians))
+			local y = mapCentre[2] + (radius * math.sin(faceRadians))
+
+			cam.Start3D2D(Vector(x, y, 20), Angle(0, faceAngle - 90, -90), 1)
+				surface.SetDrawColor(Color(255, 255, 255, 255))
+				surface.SetMaterial(wallMeterial)
+				surface.DrawTexturedRectUV(0 - (wallWidth / 2), 0, wallWidth, wallHeight, 0, 0, wallWidth / textureWidth, wallHeight / textureHeight )
+			cam.End3D2D()
+
+		end
+	end
+
 	
 end 
 
@@ -149,6 +166,12 @@ function GM:HUDShouldDraw(name)
 		if name == element then return false end
 	end  
 	return true 
+end
+
+function GM:ScoreboardShow()
+end
+
+function GM:ScoreboardHide()
 end
 
 -- Receieve map centre from server

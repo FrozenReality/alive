@@ -1,5 +1,5 @@
 GM.Name = "Alive"
-GM.Author = "James"
+GM.Author = "Fishcake"
 GM.Email = "N/A"
 GM.Website = "N/A"
 

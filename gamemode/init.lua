@@ -40,11 +40,12 @@ end
 function GM:InitPostEntity()
     -- Store the map centre value
     local mapCentreEnt = ents.FindByClass('al_map_centre')[1]
-    mapCentre = mapCentreEnt:GetPos()
 
-    -- Get the map center key value for wall start and end
+    -- Set vars based on map centre existence
+    mapCentre = mapCentreEnt:GetPos()
     wallStart = mapCentreEnt.startDistance
     wallEnd = mapCentreEnt.endDistance
+
 end
 
 -- On tick...
@@ -100,19 +101,15 @@ function GM:Think()
         end
     end
 
+
     -- Get all alive players technically outside of the wall
     for _, ply in pairs(team.GetPlayers(teamAlive)) do
 
-        -- Check to see if the player is within the wall bounds
+        -- Get player pos in world
         local plyPos = ply:GetPos()
-        local plyX = plyPos[1]
-        local plyY = plyPos[2]
-        local xPosBound = mapCentre[1] + wallDistanceCurrent
-        local xNegBound = mapCentre[1] - wallDistanceCurrent
-        local yPosBound = mapCentre[2] + wallDistanceCurrent
-        local yNegBound = mapCentre[2] - wallDistanceCurrent
 
-        if plyX > xPosBound or plyX < xNegBound or plyY > yPosBound or plyY < yNegBound then
+        -- Check to see if player is within the wall distance 
+        if math.Distance(mapCentre[1], mapCentre[2], plyPos[1], plyPos[2]) > wallDistanceCurrent then
 
             -- Check to see if the player is in the player table
             if table.HasValue(playersOutsideWall, ply) == false then
@@ -129,7 +126,6 @@ function GM:Think()
         end
 
     end
-
 end
 
 -- Player spawn
@@ -185,6 +181,15 @@ function GM:PlayerSpawn(ply)
 
 end
 
+function GM:ScalePlayerDamage(ply, hitgroup, dmginfo)
+    -- Double the damage the weapon does if the player is shit in the head
+    if (hitgroup == HITGROUP_HEAD) then
+        dmginfo:ScaleDamage(4)
+    else
+        dmginfo:ScaleDamage(1)
+    end
+end
+
 function GM:EntityTakeDamage(target, dmginfo)
 
     -- Players can only receive damage while in playing state
@@ -194,7 +199,6 @@ function GM:EntityTakeDamage(target, dmginfo)
 
 end
 
-
 function GM:PlayerDeath(ply, weapon, killer)
 	-- Console message
     printDebug(ply:Nick() .. " died...")
@@ -203,9 +207,22 @@ function GM:PlayerDeath(ply, weapon, killer)
     ply:SetTeam(teamDead)
 end
 
+function GM:DoPlayerDeath(ply, attacker, dmginfo)
+    printDebug(ply:Nick() .. " DoPlayerDeath...")
+    
+    ply:CreateRagdoll()
+end
+
 -- Disable player suicide
 function GM:CanPlayerSuicide(ply)
     return false
+end
+
+-- Function to decide if a player can pick up a weapon 
+function GM:PlayerCanPickupWeapon(ply, wep)
+    printDebug(ply:Nick() .. ' is trying to pick up ' .. wep:GetClass())
+
+    return true
 end
 
 -- Function to prep new round
@@ -297,6 +314,9 @@ function beginRound()
         ply:Spawn()
     end
 
+    -- Equip the map
+    equipMap()
+
     -- Create a timer to advance to the next wall step
     timer.Create('wallAdvanceStep', wallStepTime, wallSteps, function()
         -- Advance wall step
@@ -304,14 +324,33 @@ function beginRound()
     end)
 
     -- Create a timer to hurt all players outside of the wall
-    timer.Create('playerOutsideWallHurt', 1, 0, function()
+    timer.Create('playerOutsideWallHurt', 0.5, 0, function()
         
         -- Loop players
         for _, ply in pairs(playersOutsideWall) do
-            ply:TakeDamage(10)
+            ply:TakeDamage(1 * (wallCurrentStep + 1))
         end
 
     end)
+
+end
+
+-- Function to equip the map
+function equipMap()
+
+    local weapons = {
+        'weapon_al_usp',
+        'weapon_al_glock'
+    }
+
+    -- Find all of the item ents
+    for _, itemSpawn in pairs(ents.FindByClass('al_item_spawn')) do
+
+        local weaponUSP = ents.Create('al_item')
+        weaponUSP:SetPos(itemSpawn:GetPos())
+        weaponUSP:Spawn()
+
+    end
 
 end
 
@@ -362,8 +401,11 @@ end
 
 -- Function to set wall distance
 function setWallDistance(distance, force)
+    -- Console message
+    printDebug("Setting wall distance to " .. wallDistance)
+
     -- Set server var
-    wallDistance = distance
+    wallDistance = tonumber(distance)
 
     if force then
         wallDistanceCurrent = wallDistance
